@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Test
+        run: python -m unittest discover -s tests -v
+      - name: Compile example
+        run: agentic-workflow compile examples/document_pipeline/SKILL.md -o build/workflow.json
+      - name: Validate example
+        run: agentic-workflow validate build/workflow.json
+      - name: Run example
+        run: >-
+          agentic-workflow run build/workflow.json
+          --inputs examples/document_pipeline/inputs.json
+          --workspace examples/document_pipeline
+          --db .state/demo.sqlite3 --run-id ci-demo

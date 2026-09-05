@@ -1,0 +1,5 @@
+include LICENSE README.md
+recursive-include schemas *.json
+recursive-include docs *.md
+recursive-include examples *.md *.json *.txt
+prune examples/document_pipeline/output

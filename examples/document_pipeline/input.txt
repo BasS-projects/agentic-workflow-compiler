@@ -1,0 +1,6 @@
+  Agentic Workflow Compiler
+
+This   document   is an example input.
+The workflow validates the file, normalizes text, and writes an output.
+
+AI summarization is optional and disabled by default.

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.state/
+build/
+dist/
+*.sqlite3
+*.sqlite3-*
+.env
+.env.*
+!.env.example
+examples/document_pipeline/output/
+*.sqlite3.locks/
+.DS_Store
