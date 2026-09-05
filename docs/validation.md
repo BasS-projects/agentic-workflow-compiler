@@ -36,6 +36,24 @@ own actual files and screenshots.
 
 ## Remote CI gates
 
+[Verified GitHub run 33988780057](https://github.com/BasS-projects/agentic-workflow-compiler/actions/runs/33988780057)
+completed successfully on 2026-09-05 for source commit
+`4e492d8a39ad8ef776cf61f5695fc7be1fbd1d36`. All five jobs passed:
+
+| Executed on GitHub | Observed result |
+| --- | --- |
+| Python3.11,3.12,3.13 regression jobs | All passed;143 tests per matrix job,2 optional RPA skips covered in the dedicated job |
+| Independent SIT with real Chromium and X11 | 12 passed,0 failed,1 skipped: unconfigured live semantic provider |
+| Browser/desktop tool policy suite | 8 tests passed with actual browser and disposable desktop |
+| Chromium operations console | 11 checks passed: submit/approve/complete, result, audit, token clearing, inert hostile text and mobile overflow |
+| Docker Compose deployment | 10 checks passed, including the actual worker output file's SHA256 |
+
+The [sit-evidence artifact](https://github.com/BasS-projects/agentic-workflow-compiler/actions/runs/33988780057/artifacts/9975987194)
+contains JSON/JUnit, workflow checkpoints, receipts and screenshots. Artifact
+retention ends 2026-12-04 under the repository's current retention policy.
+[Machine-readable CI verification](evidence/ci-verified.json) records the run,
+job IDs, source commit and artifact digest.
+
 [GitHub Actions](https://github.com/BasS-projects/agentic-workflow-compiler/actions)
 is configured to run the Python3.11–3.13 matrix, SIT with **required** real Chromium
 and X11 desktop scenarios, real RPA policy tests, Chromium console interaction,

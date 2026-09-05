@@ -1,0 +1,26 @@
+{
+  "verified_on": "2026-09-05",
+  "repository": "BasS-projects/agentic-workflow-compiler",
+  "source_commit": "4e492d8a39ad8ef776cf61f5695fc7be1fbd1d36",
+  "source_tree_sha256": "d07ab19203875576faf0204a30a8b16fd80ecba13287b32f096f8daf7fe46974",
+  "run_id": 33988780057,
+  "run_url": "https://github.com/BasS-projects/agentic-workflow-compiler/actions/runs/33988780057",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {"id": 101367122704, "name": "test (3.11)", "conclusion": "success", "tests": 143, "skipped": 2},
+    {"id": 101367122715, "name": "test (3.12)", "conclusion": "success", "tests": 143, "skipped": 2},
+    {"id": 101367122626, "name": "test (3.13)", "conclusion": "success", "tests": 143, "skipped": 2},
+    {"id": 101367122525, "name": "sit", "conclusion": "success", "sit": {"passed": 12, "failed": 0, "skipped": 1}, "real_rpa_tests_passed": 8, "console_checks_passed": 11},
+    {"id": 101367122698, "name": "deployment", "conclusion": "success", "docker_smoke_checks_passed": 10, "actual_container_file_hash_checked": true}
+  ],
+  "unexecuted_gate": "live_semantic_provider: no endpoint/model configured",
+  "artifact": {
+    "id": 9975987194,
+    "name": "sit-evidence",
+    "size_in_bytes": 367259,
+    "sha256": "8cfc38a05b0f47b73aa2f529c7e86b45ce9e11960f9e2fdbc384ba1366e308ad",
+    "expires_at": "2026-12-04T20:00:13Z"
+  },
+  "scope": "Executed on GitHub-hosted Linux runners with real Chromium, X11, processes, HTTP and Docker. No production cloud endpoint or live language model was provisioned."
+}
