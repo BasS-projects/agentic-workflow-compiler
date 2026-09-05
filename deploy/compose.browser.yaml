@@ -1,0 +1,10 @@
+# Run from repository root after enabling the browser plugin in plugins.json:
+# docker compose -f compose.yaml -f deploy/compose.browser.yaml up --build -d
+services:
+  worker:
+    image: agentic-workflow-compiler:rpa
+    build:
+      context: .
+      target: rpa
+    shm_size: 1gb
+    pids_limit: 512

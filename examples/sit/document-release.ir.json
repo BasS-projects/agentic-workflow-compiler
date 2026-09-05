@@ -1,0 +1,35 @@
+{
+  "ir_version": "0.2",
+  "id": "document_release",
+  "inputs": {},
+  "steps": [
+    {
+      "id": "prepare",
+      "kind": "tool",
+      "tool": "files.write_text",
+      "args": {
+        "path": "prepared.txt",
+        "text": "Prepared ACME invoice 001"
+      }
+    },
+    {
+      "id": "release",
+      "kind": "approval",
+      "prompt": "Release ACME invoice 001 to accounting?"
+    },
+    {
+      "id": "publish",
+      "kind": "tool",
+      "tool": "files.write_text",
+      "args": {
+        "path": "released.txt",
+        "text": "Released ACME invoice 001"
+      }
+    }
+  ],
+  "outputs": {
+    "receipt_path": {
+      "$ref": "steps.publish.path"
+    }
+  }
+}

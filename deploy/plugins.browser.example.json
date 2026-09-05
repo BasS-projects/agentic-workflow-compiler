@@ -1,0 +1,10 @@
+{
+  "plugins": [
+    {
+      "builtin": "browser",
+      "config": {
+        "allowed_origins": ["http://fixture:8081"]
+      }
+    }
+  ]
+}

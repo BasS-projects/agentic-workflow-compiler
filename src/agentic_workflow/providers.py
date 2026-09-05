@@ -141,6 +141,20 @@ class ChatCompletionsProvider:
         self._timeout_seconds = timeout_seconds
         self._opener = urllib.request.build_opener(_NoRedirect())
 
+    def __getstate__(self):
+        """Rebuild non-picklable SSL transport in a trusted spawned worker.
+
+        This state contains the key needed by the child process. It is private
+        process transport, never compile provenance, user-visible output, or an
+        interchange format. Only trusted runtime code serializes this object.
+        """
+        return {"endpoint": self._endpoint, "model": self._model,
+                "api_key": self._api_key, "timeout_seconds": self._timeout_seconds}
+
+    def __setstate__(self, state):
+        # Build a fresh opener/SSLContext instead of attempting to pickle it.
+        ChatCompletionsProvider.__init__(self, **state)
+
     def _request(self, text: str, instruction: str, idempotency_key: str | None = None) -> str:
         payload = {
             "model": self._model,

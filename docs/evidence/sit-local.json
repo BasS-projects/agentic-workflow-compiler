@@ -1,0 +1,284 @@
+{
+  "schema_version": "1.0",
+  "started_at": "2026-09-05T19:57:17.196572+00:00",
+  "git_revision": "3b51b56bf06c678b1ab8271676d21b099b1c4307",
+  "git_dirty": true,
+  "source_tree_sha256": "d07ab19203875576faf0204a30a8b16fd80ecba13287b32f096f8daf7fe46974",
+  "source_fingerprint_scope": "Sorted relative path + NUL + bytes + NUL for src/**/*.py, sit/**/*.py, pyproject.toml; excludes .state and build.",
+  "python": "3.12.13",
+  "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+  "packages": {
+    "agentic-workflow-compiler": "0.2.0",
+    "langgraph": "1.2.11",
+    "playwright": "1.62.0",
+    "cloudpickle": "3.1.2"
+  },
+  "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z",
+  "scenarios": [
+    {
+      "id": "semantic_review",
+      "phase": 1,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/semantic_review",
+      "evidence": {
+        "normalized": "Purchase order\nACME",
+        "ir_tamper_rejected": true,
+        "source_tamper_rejected": true,
+        "unreviewed_rejected": true,
+        "semantic_provider": "deterministic contract fixture; not a model quality evaluation"
+      },
+      "status": "passed",
+      "duration_seconds": 0.042
+    },
+    {
+      "id": "langgraph_parity",
+      "phase": 2,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/langgraph_parity",
+      "evidence": {
+        "engines": [
+          "Python runtime",
+          "actual LangGraph StateGraph"
+        ],
+        "business_outcomes": {
+          "python": {
+            "success_outputs": {
+              "normalized": "Invoice\nACME 001",
+              "optional": null
+            },
+            "step_statuses": [
+              "completed",
+              "skipped",
+              "completed"
+            ],
+            "outage_initial": "failed",
+            "outage_resumed": "completed",
+            "retry_outputs": {
+              "amount_thb": 1250
+            },
+            "retry_attempts": 2
+          },
+          "langgraph": {
+            "success_outputs": {
+              "normalized": "Invoice\nACME 001",
+              "optional": null
+            },
+            "step_statuses": [
+              "completed",
+              "skipped",
+              "completed"
+            ],
+            "outage_initial": "failed",
+            "outage_resumed": "completed",
+            "retry_outputs": {
+              "amount_thb": 1250
+            },
+            "retry_attempts": 2
+          }
+        },
+        "real_http_request_counts": {
+          "python": 2,
+          "langgraph": 2
+        }
+      },
+      "status": "passed",
+      "duration_seconds": 1.598
+    },
+    {
+      "id": "advanced_batch_parallel",
+      "phase": 3,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/advanced_batch_parallel",
+      "evidence": {
+        "normalized_documents": [
+          "First invoice",
+          "Second invoice",
+          "Third invoice"
+        ],
+        "batch_overflow_rejected": true,
+        "peak_active": 2,
+        "distinct_processes": 4,
+        "timing": [
+          {
+            "end": 28376.749652634,
+            "name": "alpha",
+            "pid": 37,
+            "start": 28376.349539599
+          },
+          {
+            "end": 28376.769977623,
+            "name": "beta",
+            "pid": 38,
+            "start": 28376.369866901
+          },
+          {
+            "end": 28377.264372902,
+            "name": "delta",
+            "pid": 39,
+            "start": 28376.864262562
+          },
+          {
+            "end": 28377.29282958,
+            "name": "gamma",
+            "pid": 40,
+            "start": 28376.892724616
+          }
+        ]
+      },
+      "status": "passed",
+      "duration_seconds": 1.465
+    },
+    {
+      "id": "advanced_approval_cancellation",
+      "phase": 3,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/advanced_approval_cancellation",
+      "evidence": {
+        "approved_after_restart": true,
+        "preparation_side_effect_count": 1,
+        "denied_status": "failed",
+        "active_cancel_status": "cancelled",
+        "cancel_stop_seconds": 0.039,
+        "late_effect_absent_after_original_deadline": true
+      },
+      "status": "passed",
+      "duration_seconds": 3.807
+    },
+    {
+      "id": "api_rbac_identity",
+      "phase": 4,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/api_rbac_identity",
+      "evidence": {
+        "unauthenticated": 401,
+        "viewer_write": 403,
+        "operator_claim": 403,
+        "worker_impersonation": 403,
+        "forged_actor_ignored": true,
+        "identity_conflict": 409,
+        "deduplicated_count": 1,
+        "authenticated_metrics_verified": true
+      },
+      "status": "passed",
+      "duration_seconds": 0.099
+    },
+    {
+      "id": "remote_workers_exclusive",
+      "phase": 3,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/remote_workers_exclusive",
+      "evidence": {
+        "transport": "actual HTTP over loopback; two independent OS worker processes",
+        "workers": [
+          "worker-a",
+          "worker-b"
+        ],
+        "claims_per_initial_run": {
+          "invoice_a": 1,
+          "invoice_b": 1
+        },
+        "contended_claim_count": 1,
+        "delivered_content": "ACME invoice 001",
+        "coordinator_db_shared_with_workers": false
+      },
+      "status": "passed",
+      "duration_seconds": 0.588
+    },
+    {
+      "id": "lease_fencing_recovery_schedule",
+      "phase": 4,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/lease_fencing_recovery_schedule",
+      "evidence": {
+        "real_lease_expiry": true,
+        "uncertain_effects_require_recovery": true,
+        "stale_complete_and_heartbeat_http": 409,
+        "recovery_completed": true,
+        "cancelled_lease_complete_http": 409,
+        "same_due_tick_run_counts": [
+          1,
+          0
+        ],
+        "scheduled_delivery_completed": true
+      },
+      "status": "passed",
+      "duration_seconds": 1.584
+    },
+    {
+      "id": "remote_approval_restart",
+      "phase": 3,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/remote_approval_restart",
+      "evidence": {
+        "waiting_before_approval": true,
+        "new_process_resume": true,
+        "preparation_not_replayed": true,
+        "published_after_approval": true,
+        "approval_actor": "finance-reviewer"
+      },
+      "status": "passed",
+      "duration_seconds": 0.83
+    },
+    {
+      "id": "remote_active_cancellation",
+      "phase": 3,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/remote_active_cancellation",
+      "evidence": {
+        "transport": "real coordinator and remote worker OS processes",
+        "tool_loading": "explicit trusted fixture plugin",
+        "coordinator_status": "cancelled",
+        "worker_stop_seconds": 1.269,
+        "late_effect_absent_after_original_deadline": true,
+        "downstream_publication_absent": true
+      },
+      "status": "passed",
+      "duration_seconds": 3.454
+    },
+    {
+      "id": "remote_abrupt_crash_takeover",
+      "phase": 3,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/remote_abrupt_crash_takeover",
+      "evidence": {
+        "crash": "actual SIGKILL of remote supervisor after HTTP effect accepted",
+        "lease_expiry_requires_recovery": true,
+        "replacement_worker": "worker-b",
+        "http_delivery_attempts": 2,
+        "unique_idempotency_keys": 1,
+        "vendor_deliveries": 1,
+        "old_owner_completion_http": 409,
+        "limitation": "Deduplication proved for the idempotent fixture service; external services must implement that contract."
+      },
+      "status": "passed",
+      "duration_seconds": 2.26
+    },
+    {
+      "id": "browser_vendor_quote",
+      "phase": 4,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/browser_vendor_quote",
+      "status": "skipped",
+      "reason": "Playwright package exists but Chromium is unavailable; real browser gate not executed.",
+      "duration_seconds": 0.441
+    },
+    {
+      "id": "desktop_real",
+      "phase": 4,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/desktop_real",
+      "status": "skipped",
+      "reason": "Real desktop gate requires a disposable X11 display; missing: Xvfb, xdotool",
+      "duration_seconds": 0.0
+    },
+    {
+      "id": "live_semantic_provider",
+      "phase": 1,
+      "artifact_directory": "${REPOSITORY}/.state/sit-artifacts/20260905T195717196256Z/live_semantic_provider",
+      "status": "skipped",
+      "reason": "No SIT_LLM_ENDPOINT and SIT_LLM_MODEL configured; live semantic extraction and model quality remain unproved.",
+      "duration_seconds": 0.0
+    }
+  ],
+  "required_cases": [],
+  "require_all": false,
+  "full_suite": true,
+  "scope": "Actual local processes, HTTP, durable files, optional installed browser/desktop; no production cloud claim.",
+  "duration_seconds": 16.181,
+  "finished_at": "2026-09-05T19:57:33.376780+00:00",
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 3
+  },
+  "gate_requirements_met": true,
+  "status": "passed_with_skips"
+}

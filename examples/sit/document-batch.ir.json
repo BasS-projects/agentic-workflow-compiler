@@ -1,0 +1,39 @@
+{
+  "ir_version": "0.2",
+  "id": "document_batch",
+  "inputs": {
+    "documents": {
+      "type": "array"
+    }
+  },
+  "steps": [
+    {
+      "id": "batch",
+      "kind": "foreach",
+      "items": {
+        "$ref": "inputs.documents"
+      },
+      "max_items": 3,
+      "steps": [
+        {
+          "id": "normalize",
+          "kind": "tool",
+          "tool": "text.normalize",
+          "args": {
+            "text": {
+              "$ref": "loop.item"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "items": {
+      "$ref": "steps.batch.items"
+    },
+    "count": {
+      "$ref": "steps.batch.count"
+    }
+  }
+}

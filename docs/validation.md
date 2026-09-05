@@ -1,33 +1,64 @@
-# Validation record
+# Validation record — 0.2.0
 
-Validated on 2026-09-05 in the cloud workspace, Linux with Python 3.12.13.
+Executed on 2026-09-05 in the development workspace, Linux/Python3.12.13.
+Source and dependency fingerprints are preserved in the
+[local SIT report](evidence/sit-local.json); `git_dirty:true` records that source
+was tested before publication. Its exact source hash identifies the implementation
+independently of the previous Git commit shown by the working checkout.
 
-| Check | Result |
+| Check | Actual result |
 | --- | --- |
-| Editable package installation | Passed using available setuptools without external dependencies |
-| `python -m unittest discover -s tests -q` | 66 tests passed |
-| `python -m compileall -q src` | Passed |
-| Document example compile and validation | Passed |
-| Document example execution | Completed; 192 UTF-8 bytes written |
-| Resume of the completed example | Reused the same saved outputs |
-| CLI, input/reference validation, file containment | Covered by passing tests |
-| Retry, timeout, process cleanup, run lock, recovery | Covered by passing tests |
-| HTTP AI provider and semantic extraction | Covered with mocked HTTP responses; no live model requests |
+| Package installation | Passed; version0.2.0, cloudpickle3.1.2, LangGraph1.2.11, Playwright1.62.0 |
+| Combined regression suite | 143 tests:141 passed,2 explicitly skipped;0 failures |
+| Independent SIT | 13 scenarios:10 passed,3 explicitly skipped;0 failures |
+| Compilation/CLI/backend artifact | Real generated LangGraph artifact executed; review blocked effects and tamper rejected |
+| Advanced runtime | Actual spawned parallel overlap, bounded concurrency, approval restart/denial/cancel, orphan recovery and shared engine identity exclusion |
+| Distributed API/workers | Real HTTP and worker processes; exclusive claims, lease fencing, authenticated actors, cancellation and scheduling |
+| Abrupt worker loss | Actual supervisor SIGKILL after accepted HTTP delivery, uncertain recovery, new worker takeover, same idempotency key; fixture ledger delivered once across2 attempts |
+| Recovery edge cases | Expired lease cannot renew after SQL lock wait; approval immutable; missing reviewed checkpoint requires new run and fresh review |
+| Spawned AI transport | Authenticated local HTTP fixture executed through advanced and LangGraph runtimes; no external model used |
+| Deployment smoke locally | Actual API and remote worker:9 checks passed; container-specific file check not run locally |
+| Python syntax and documentation links | Passed |
 
-The CI configuration targets Python 3.11, 3.12, and 3.13 on GitHub-hosted Linux.
-This record captures verification before publication; see the
-[Actions page](https://github.com/BasS-projects/agentic-workflow-compiler/actions)
-for current remote matrix results. A Codespace or hosted service has not been
-provisioned.
+Reproduce:
 
-## Optional provider contract
+```bash
+python -m pip install -e '.[all]'
+python -m unittest discover -s tests -v
+python -m sit.run --output .state/sit-report.json
+```
 
-The generic provider sends `model` and `messages` to an explicitly configured
-chat-completions endpoint. The compatible endpoint format is described in the
-[llama.cpp server documentation](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
-This is a protocol reference, not a claim that a particular server or model was
-tested in this workspace.
+Evidence: [unit output](evidence/unit-local.txt), [SIT JSON](evidence/sit-local.json),
+[JUnit XML](evidence/sit-local.xml), [scenario plan and oracles](sit-plan.md).
+Artifact paths in the checked-in local report use `${REPOSITORY}` and refer to the
+original local evidence directory; the GitHub CI evidence artifact contains its
+own actual files and screenshots.
 
-AI tasks forward the stable step idempotency key in the `Idempotency-Key` header.
-The destination may ignore this header; the client cannot guarantee remote
-deduplication. Semantic extraction has no runtime step identity and omits it.
+## Remote CI gates
+
+[GitHub Actions](https://github.com/BasS-projects/agentic-workflow-compiler/actions)
+is configured to run the Python3.11–3.13 matrix, SIT with **required** real Chromium
+and X11 desktop scenarios, real RPA policy tests, Chromium console interaction,
+and Docker Compose API/worker smoke including the written file's actual hash.
+Results for the published commit must be read from Actions; configuration alone
+is not a passing result. Reports/screenshots are uploaded in `sit-evidence`.
+
+## Local skips and external acceptance
+
+- **Browser:** Playwright was installed, but Chromium download was unavailable
+  under the workspace network restrictions. Real browser execution was skipped
+  locally; the dedicated console gate also correctly fails without a binary.
+- **Desktop:** Local Xvfb/xdotool were initially unavailable. Extracted binaries
+  still could not start Xvfb because the host denies Unix sockets. No desktop
+  interaction is claimed from this workspace; GitHub's disposable X11 gate is
+  required instead.
+- **Live model:** No endpoint/model/key was configured. Recorded semantic cases
+  and local HTTP transport prove interfaces, not language model quality. Run the
+  live gate and full semantic evaluation corpus against the selected endpoint.
+- **Production cloud:** Docker is absent in the local workspace. CI's actual
+  containers prove the packaged deployment on a GitHub runner, not a public
+  production endpoint. Cloud target, TLS, account credentials and customer RPA
+  applications remain environment-specific acceptance work.
+
+These limits do not turn skipped cases into passes. See the [roadmap](roadmap.md)
+for the distinction between implemented phase scope and external rollout gates.

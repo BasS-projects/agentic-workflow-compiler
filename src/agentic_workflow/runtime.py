@@ -211,6 +211,21 @@ class Runtime:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as exc:
                 raise RunBusyError(f"Run {run_id!r} is already being executed") from exc
+            with self._connect() as connection:
+                table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='a_runs'"
+                ).fetchone()
+                if table and connection.execute(
+                        "SELECT 1 FROM a_runs WHERE run_id=?", (run_id,)).fetchone():
+                    raise IdentityMismatchError("Run belongs to IR0.2; use AdvancedRuntime")
+            if type(self) is Runtime:
+                with self._connect() as connection:
+                    table = connection.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='langgraph_epochs'"
+                    ).fetchone()
+                    if table and connection.execute(
+                            "SELECT 1 FROM langgraph_epochs WHERE run_id=?", (run_id,)).fetchone():
+                        raise IdentityMismatchError("Run belongs to LangGraph; use LangGraphRuntime")
             yield
         finally:
             # Closing, rather than explicitly unlocking, preserves exclusion if a
