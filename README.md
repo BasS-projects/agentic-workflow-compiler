@@ -1,207 +1,158 @@
 # Agentic Workflow Compiler
 
-แปลง `SKILL.md` ให้เป็น Workflow IR ที่ตรวจสอบได้ แล้วรันตามลำดับด้วย Python พร้อมบันทึกสถานะใน SQLite เพื่อดูผลย้อนหลังและทำงานต่อจากขั้นที่ยังไม่สำเร็จ
+แปลง `SKILL.md` เป็น Workflow IR ที่ตรวจสอบได้ แล้วรันด้วย Python หรือ LangGraph พร้อม state, audit events และ recovery โดยแยก AI extraction ออกจาก execution
 
-โปรเจกต์นี้เริ่มจากแนวคิด **Skill → extraction → IR → deterministic validation → runtime → result/logs** โดยแยกการตีความด้วย AI ออกจากการควบคุม execution อย่างชัดเจน เป้าหมายระยะยาวคือระบบที่ไม่ผูกกับผู้ให้บริการ AI หรือ workflow backend รายใดรายหนึ่ง
+รุ่น **0.2.0** เพิ่ม implementation ครบทั้ง M0–M4 ของ [design roadmap](docs/roadmap.md): semantic review, backend compiler, loop/parallel/approval, HTTP workers, API/UI, scheduling และ RPA ส่วนผลทดสอบจริงและเงื่อนไขที่ยังไม่ได้ตรวจบนบริการภายนอกอยู่ใน [validation record](docs/validation.md)
 
-## สถานะ MVP
-
-ใช้งานเป็น Python CLI บน Linux หรือ macOS ได้ มีการตั้งค่า development container สำหรับทำงานใน GitHub Codespaces โปรเจกต์ยังไม่มีบริการ API, หน้าเว็บ หรือ remote workflow engine ที่ deploy ให้แล้ว ผู้ใช้ Windows ใช้ WSL หรือ Linux container
-
-MVP ใช้ Python 3.11 ขึ้นไปและ standard library สำหรับ runtime ไม่ต้องมี API key เพื่อรันตัวอย่าง
-
-| มีใน MVP | ขอบเขต |
+| Phase | สิ่งที่ใช้งานได้ |
 | --- | --- |
-| Skill extraction | อ่าน JSON จาก fenced block `workflow-ir` หนึ่ง block ใน `SKILL.md` |
-| `SemanticExtractor` | Protocol และ optional OpenAI-compatible HTTP provider สำหรับสร้าง IR แล้วส่งผ่าน validator เดียวกัน |
-| Workflow IR | task ตามลำดับ, input, reference, immutable variable, `when`, retry, timeout, output |
-| Python runtime | registered tools, explicit AI steps, optional HTTP provider, subprocess timeout, sequential execution |
-| State และ logs | SQLite, resume, inspect, event log, idempotency key ต่อ run/step |
-| Backend adapter | Protocol และ capability declarations สำหรับขยายต่อ |
+| M0 Foundation | Structured Skill → IR0.1, deterministic validation, tools/AI registry, retry/timeout, SQLite resume |
+| M1 Semantic compilation | Pending review bundle, source/IR/provenance hashes, diagnostics, constant-condition optimizer, evaluation cases |
+| M2 First backend | Executable LangGraph StateGraph artifact สำหรับ IR0.1; ปฏิเสธ semantics ที่ยังไม่รองรับ |
+| M3 Advanced execution | IR0.2 bounded foreach/parallel, durable approval/cancellation, central queue, leased HTTP workers, explicit recovery |
+| M4 Operations | Authenticated API, web console, interval schedules, metrics, trusted plugins, browser/desktop RPA, Docker Compose |
 
-ค่าเริ่มต้นอ่าน IR ที่เขียนไว้ชัดเจนในเอกสารและไม่เรียก AI มี `ChatCompletionsProvider` สำหรับ semantic extraction และ AI task ผ่าน OpenAI-compatible HTTP endpoint เมื่อระบุ endpoint/model เอง การเชื่อมต่อ provider ทดสอบด้วย mocked HTTP boundary แล้ว แต่ยังไม่ได้ทดสอบกับบริการ AI จริง
+รันบน Linux หรือ macOS ด้วย Python 3.11+; desktop RPA ใช้ Linux/X11 ผู้ใช้ Windows ใช้ WSL หรือ Linux container ตัวอย่างพื้นฐานไม่ต้องมี API key
 
 ## เริ่มใช้งาน
 
-รันจากโฟลเดอร์ repository:
-
 ```bash
+git clone https://github.com/BasS-projects/agentic-workflow-compiler.git
+cd agentic-workflow-compiler
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
+python -m pip install -e '.[langgraph]'
 
-mkdir -p build
-python -m agentic_workflow compile examples/document_pipeline/SKILL.md -o build/workflow.json
-python -m agentic_workflow validate build/workflow.json
-python -m agentic_workflow run build/workflow.json \
+agentic-workflow compile examples/document_pipeline/SKILL.md -o build/workflow.json
+agentic-workflow validate build/workflow.json
+agentic-workflow run build/workflow.json \
   --inputs examples/document_pipeline/inputs.json \
   --workspace examples/document_pipeline \
-  --db build/runs.sqlite3 \
-  --run-id document-demo
+  --db .state/demo.sqlite3 --run-id document-demo
+agentic-workflow inspect document-demo --db .state/demo.sqlite3
+agentic-workflow events document-demo --db .state/demo.sqlite3
 ```
 
-เมื่อสำเร็จ ไฟล์ `examples/document_pipeline/output/normalized.txt` จะมีข้อความที่ผ่าน `text.normalize` และ CLI จะคืน JSON ที่มี `run_id`, `status` และ `outputs` ชื่อ run ต้องไม่ซ้ำสำหรับการเริ่มงานใหม่
+ผลคือ `examples/document_pipeline/output/normalized.txt` และ JSON ที่มี `status: completed` เมื่อต้องการใช้ checkpoint เดิม ให้รันคำสั่ง `run` เดิมเพิ่ม `--resume` โดยคง workflow, input, workspace และ run ID เดิม เปลี่ยน input หรือ workflow ให้ใช้ run ID ใหม่
 
-ตรวจสอบสถานะและ event log:
+## เปิด API, worker และ web console
+
+ต้องมี Docker Engine และ Compose บนเครื่องปลายทาง:
 
 ```bash
-python -m agentic_workflow inspect document-demo --db build/runs.sqlite3
-python -m agentic_workflow events document-demo --db build/runs.sqlite3
+python deploy/init.py
+docker compose up --build -d --wait
+python deploy/smoke.py --docker
+python deploy/init.py --token operator
 ```
 
-สั่ง resume ด้วย workflow, input และ workspace เดิม:
+เปิด `http://127.0.0.1:8080` แล้วใส่ operator token ใน console เพื่อ submit และติดตามงาน ใช้ approver token จาก `python deploy/init.py --token approver` สำหรับอนุมัติหรือปฏิเสธ API แยกสิทธิ์ viewer/operator/approver/admin/worker และบันทึก actor จาก credential จริง ไม่ใช้ชื่อที่ผู้ส่งกรอกแทน identity
+
+Compose มี coordinator และ worker แยก process/container พร้อม durable volumes และ health checks ตัว smoke test ส่ง workflow ผ่าน HTTP รอ approval อนุมัติ แล้วตรวจผลที่ worker เขียนจริง อ่าน [operations](docs/operations.md) สำหรับ deployment, token management, backup, scaling, RPA image และ production configuration
+
+GitHub Codespaces ใช้สำหรับพัฒนาได้ผ่าน `.devcontainer` การ deploy ไปยังบัญชี cloud จริงยังต้องระบุเครื่องหรือบริการปลายทาง ข้อมูล TLS และ credentials; repository นี้ไม่สร้าง cloud account หรือเปิดบริการสาธารณะให้โดยอัตโนมัติ
+
+## Compile และ review ก่อนใช้ AI-generated workflow
+
+Structured compilation อ่าน `workflow-ir` fenced JSON เพียงหนึ่ง block โดยไม่เรียก AI เพิ่ม `--bundle` เพื่อเก็บ source/provenance และบังคับ review; เพิ่ม `--optimize` เพื่อ fold เฉพาะ constant conditions โดยไม่ย้ายหรือเรียก tools
 
 ```bash
-python -m agentic_workflow run build/workflow.json \
+agentic-workflow compile examples/document_pipeline/SKILL.md \
+  --bundle --optimize -o build/review.json
+# อ่าน source, workflow, provenance และ diagnostics ในไฟล์ก่อนอนุมัติ
+agentic-workflow approve-bundle build/review.json --actor workflow-reviewer
+agentic-workflow run build/review.json \
   --inputs examples/document_pipeline/inputs.json \
   --workspace examples/document_pipeline \
-  --db build/runs.sqlite3 \
-  --run-id document-demo \
-  --resume
+  --db .state/review.sqlite3 --run-id reviewed-demo
 ```
 
-ขั้นที่สำเร็จแล้วจะใช้ผลเดิม หาก run สำเร็จครบแล้ว การ resume จะคืนผลที่บันทึกไว้ การ resume ไม่ใช่การเริ่มงานใหม่หลังแก้ไฟล์ input: เมื่ออยากประมวลผลข้อมูลใหม่ให้ใช้ run ID ใหม่
-
-## ทำงานบน cloud
-
-เปิด [repository บน GitHub](https://github.com/BasS-projects/agentic-workflow-compiler) แล้วเลือก **Code → Codespaces → Create codespace** เพื่อใช้ development environment จาก `.devcontainer/devcontainer.json` จากนั้นรันคำสั่ง quickstart ใน terminal ของ Codespace
-
-Codespaces เป็นเครื่องสำหรับพัฒนาและรัน CLI งานตามคำสั่งใน MVP นี้ ยังไม่มี scheduler หรือ worker service ที่ทำงานต่อโดยอัตโนมัติเมื่อ Codespace หยุด เก็บ source ใน Git และสำรอง SQLite กับไฟล์ output แยกตามความต้องการก่อนลบ environment ดู [`docs/cloud-development.md`](docs/cloud-development.md) สำหรับ cloud environment และการนำ repository ขึ้น GitHub
-
-## รูปแบบ `SKILL.md`
-
-เขียนคำอธิบายงานตามปกติ และใส่ IR ใน fenced block ที่ติดชื่อ `workflow-ir` เพียงหนึ่ง block:
-
-````markdown
-# Greeting
-
-ส่งข้อความจาก input เป็น output
-
-```workflow-ir
-{
-  "ir_version": "0.1",
-  "id": "greeting",
-  "inputs": {
-    "name": {"type": "string", "default": "world"}
-  },
-  "steps": [
-    {
-      "id": "message",
-      "kind": "tool",
-      "tool": "core.value",
-      "args": {"value": {"$ref": "inputs.name"}}
-    }
-  ],
-  "outputs": {"name": {"$ref": "steps.message.value"}}
-}
-```
-````
-
-`steps` คือ sequence โดยตรง การอ้างอิงต้องใช้ object `{"$ref": "..."}` ทั้งก้อน รองรับ input และ output ของขั้นก่อนหน้าเท่านั้น ไม่มี expression evaluation, arbitrary import หรือ shell execution ใน IR
-
-ตัวแปรเป็นค่าจาก input และผลของแต่ละ step ที่ไม่แก้ย้อนหลัง ใช้ `core.value` เมื่อต้องการตั้งชื่อค่าระหว่างทาง `when` ใช้ condition เช่น `{"equals": [{"$ref": "inputs.use_ai"}, true]}` ขั้นที่ถูกข้ามไม่มีผลลัพธ์สำหรับให้ขั้นถัดไปใช้เป็นข้อมูลที่จำเป็น
-
-## ตัวอย่าง document pipeline
-
-ตัวอย่างใน [`examples/document_pipeline/SKILL.md`](examples/document_pipeline/SKILL.md) ทำงานดังนี้:
-
-1. รับ `input_path`, `output_path` และ `use_ai` จาก input JSON
-2. ตรวจว่าไฟล์ input มีอยู่ แล้วอ่านเป็น UTF-8
-3. ประมวลผลข้อความด้วย `text.normalize`: ตัด whitespace หัวท้ายของแต่ละบรรทัด ตัดบรรทัดว่างหัวท้ายเอกสาร และใช้ line ending แบบ LF โดยคงช่องว่างภายในบรรทัดไว้
-4. มีขั้น AI สำหรับผลสรุปเสริม โดย `use_ai` เป็น `false` ตามค่าเริ่มต้น
-5. เขียนผลจากขั้น normalize ลงไฟล์เสมอ จึงไม่อ้างอิงข้อมูลจาก AI step ที่อาจถูกข้าม
-6. สร้าง completion record และให้ runtime บันทึกสถานะกับ events
-
-หากเปลี่ยน `use_ai` เป็น `true` ต้องลงทะเบียน provider ชื่อ `document.summarize` ผ่าน Python API หรือ CLI flags ตามตัวอย่างถัดไป
-
-## ใช้ AI provider แบบ optional
-
-ต้องมี endpoint ที่รองรับ Chat Completions อยู่แล้ว โดยส่ง **URL เต็ม** รวม `/v1/chat/completions` และ model identifier ที่ endpoint นั้นรองรับ ตัวอย่างนี้ใช้ localhost และ `YOUR_MODEL` เป็น placeholder:
+Semantic extraction ใช้ endpoint/model ที่ระบุเองและคืน review bundle เสมอ:
 
 ```bash
-python -m agentic_workflow compile examples/document_pipeline/SKILL.md \
-  -o build/semantic-workflow.json \
-  --semantic \
+agentic-workflow compile examples/semantic/normalize.md \
+  --semantic --endpoint http://localhost:8000/v1/chat/completions \
+  --model YOUR_MODEL --api-key-env AGENTIC_AI_API_KEY \
+  -o build/semantic-review.json
+agentic-workflow evaluate examples/semantic/evaluation-cases.json \
   --endpoint http://localhost:8000/v1/chat/completions \
-  --model YOUR_MODEL
+  --model YOUR_MODEL --api-key-env AGENTIC_AI_API_KEY \
+  -o .state/live-evaluation.json
 ```
 
-`--semantic` ส่งข้อความ skill ให้ provider เพื่อสร้าง IR แล้วตรวจด้วย validator เมื่อไม่ใส่ flag นี้ compiler จะใช้ structured block แบบ offline ตามเดิม ควรอ่าน IR ที่สร้างใน `build/semantic-workflow.json` ก่อนเลือกนำไปรัน เพราะ validation ตรวจโครงสร้าง ไม่ได้ยืนยันว่า AI เข้าใจเจตนาถูกต้อง
+Endpoint ต้องรองรับ Chat Completions และคืน JSON ตาม protocol คำอธิบายกำกวมหรือ unsupported ต้องถูก reject ผล evaluation ตรวจ exact expected workflow และคืน exit code ไม่เป็นศูนย์เมื่อมี case ไม่ผ่าน การทดสอบด้วย recorded responses พิสูจน์ compiler boundary ได้ แต่ไม่ได้รับรองคุณภาพของโมเดลจริง
 
-สำหรับ AI task ใน document example ให้แก้ `use_ai` ใน `examples/document_pipeline/inputs.json` เป็น `true` แล้วใช้ run ID ใหม่:
+Bundle hash ตรวจการแก้ content หลัง review; local review record เป็น acknowledgement ของผู้ใช้ที่เชื่อถือได้ ไม่ใช่ digital signature อ่าน [semantic compilation](docs/semantic-compilation.md) สำหรับ protocol, provenance และ live evaluation
+
+## LangGraph backend
 
 ```bash
-python -m agentic_workflow run build/workflow.json \
+agentic-workflow run build/workflow.json \
+  --backend langgraph --inputs examples/document_pipeline/inputs.json \
+  --workspace examples/document_pipeline \
+  --db .state/langgraph.sqlite3 --run-id graph-demo
+
+agentic-workflow backend-compile build/workflow.json -o build/langgraph
+python build/langgraph/run_workflow.py \
   --inputs examples/document_pipeline/inputs.json \
   --workspace examples/document_pipeline \
-  --db build/runs.sqlite3 \
-  --run-id document-ai-demo \
-  --ai-tool document.summarize \
-  --endpoint http://localhost:8000/v1/chat/completions \
-  --model YOUR_MODEL
+  --db .state/artifact.sqlite3 --run-id artifact-demo
 ```
 
-ถ้า endpoint ต้องใช้ API key ให้ตั้ง environment variable เอง แล้วเพิ่ม `--api-key-env AGENTIC_AI_API_KEY` โดย flag นี้รับชื่อ environment variable เพื่อให้ credentials ไม่อยู่ใน workflow source
+StateGraph กำหนดลำดับ execution จริง และใช้ durable step state เพื่อรักษา retry, skip, failure และ resume parity กับ reference runtime รุ่นนี้รองรับ IR0.1 บน LangGraph; IR0.2 ใช้ Python advanced runtime ดู [capability mapping](docs/backends.md)
 
-## ต่อ tool หรือ AI provider
+## Loop, parallel และ approval
 
-Tool เป็น Python callable รูปแบบ `(args: dict, context: TaskContext) -> dict` และต้องลงทะเบียนก่อนใช้ Workflow เลือกเรียกเฉพาะชื่อที่ลงทะเบียนได้ ผลลัพธ์ต้อง serialize เป็น JSON ได้
+IR0.1 เดิมยังใช้ได้ `agentic-workflow migrate build/workflow.json -o build/workflow-v2.json` เปลี่ยน version อย่างชัดเจน IR0.2 เพิ่ม:
 
-```python
-from agentic_workflow.parser import compile_skill
-from agentic_workflow.providers import ChatCompletionsProvider
-from agentic_workflow.runtime import Runtime
-
-
-provider = ChatCompletionsProvider(
-    endpoint="http://localhost:8000/v1/chat/completions",
-    model="YOUR_MODEL",
-    timeout_seconds=30,
-)
-
-
-with open("examples/document_pipeline/SKILL.md", encoding="utf-8") as source:
-    workflow = compile_skill(source.read())
-
-runtime = Runtime(
-    db_path="build/ai-runs.sqlite3",
-    workspace="examples/document_pipeline",
-    ai_tools={"document.summarize": provider},
-)
-```
-
-ตัวอย่างข้างบนสร้าง runtime ที่ลงทะเบียน provider แล้ว แต่ยังไม่เรียก `run` หรือส่ง HTTP request ต้องมี model ที่ endpoint นั้นรองรับก่อนใช้งานจริง และสามารถแทน provider ด้วย trusted callable ของตัวเองได้
-
-การเปลี่ยนจาก structured extraction เป็น semantic extraction ใช้ `compile_skill(text, extractor=provider)` หรือ object อื่นที่มี `extract(text: str) -> dict` ตาม `SemanticExtractor` protocol ผล extraction ทุกแบบต้องผ่าน deterministic validator ก่อน execution อ่านรายละเอียดใน [`docs/architecture.md`](docs/architecture.md)
-
-## Resume, retry และ side effects
-
-Runtime บันทึก workflow, inputs, workspace และผลของแต่ละ step ใน SQLite การ resume ต้องรักษา identity เหล่านี้ไว้ ขั้นที่สำเร็จหรือถูก skip แล้วถูก reuse และ idempotency key ของ run/step เดิมคงเดิม การ resume แต่ละครั้งให้ retry budget ใหม่ตาม config ของ step โดยเก็บจำนวน attempts ที่เกิดขึ้นทั้งหมดไว้ Identity นี้ยังไม่รวมเวอร์ชัน source ของ custom tool/provider ผู้เรียกจึงควรคง implementation เดิมเมื่อ resume
-
-ถ้า process ล่มขณะ step กำลังทำงาน ระบบอาจยังไม่ทราบว่า side effect เสร็จหรือไม่ ต้องตรวจสอบไฟล์หรือระบบปลายทางก่อนสั่งให้ retry ขั้นที่ค้าง:
+- `foreach`: ประมวลผล array ตามลำดับและกำหนด `max_items`
+- `parallel`: named branches ที่รันพร้อมกันจริง พร้อม `max_workers`
+- `approval`: checkpoint ก่อนขั้นถัดไป สถานะ `waiting_approval` และ CLI exit code 3
 
 ```bash
-python -m agentic_workflow recover document-demo \
-  --db build/runs.sqlite3 \
-  --retry-interrupted
+agentic-workflow approve RUN_ID --db .state/runs.sqlite3 \
+  --step EXACT_STEP_PATH --actor reviewer --approve
+# ใช้ --reject เพื่อปฏิเสธ แล้ว run คำสั่งเดิมพร้อม --resume
+agentic-workflow cancel RUN_ID --db .state/runs.sqlite3
 ```
 
-จากนั้นใช้คำสั่ง `run ... --run-id document-demo --resume` เดิม การ recover เป็นการยืนยันว่าจะลองขั้นที่ถูกขัดจังหวะใหม่ ไม่สามารถ rollback side effect หรือยืนยัน exactly-once ให้ external service ได้
+เส้นทาง approval อ่านจาก `inspect` หรือผล run ส่วน HTTP approval ต้องใช้สิทธิ์ approver ใน API การ resume ใช้ผลขั้นที่เสร็จแล้วและ idempotency key เดิม ดู [IR0.2 semantics](docs/advanced-execution.md), [distributed execution](docs/distributed-execution.md) และ [SIT examples](examples/sit)
 
-Timeout หยุด subprocess ที่รัน step จึงหยุด computation ที่ค้างได้ แต่ไม่เรียกคืน HTTP request หรือ external effect ที่ส่งออกไปก่อนหน้า SQLite และ per-run file lock ป้องกันสอง executor รัน run เดียวกันภายในเครื่องและ shared state ที่รองรับ lock นี้ ระบบยังไม่ใช่ distributed execution engine
+## Tools, AI และ RPA
 
-Tool ต้องทำงานจนเสร็จก่อนคืนผลและไม่เริ่ม background job ที่ต้องทำงานต่อหลังคืนค่า เพราะ runtime จะปิด process group หลังจบ step
+Tool เป็น trusted callable `(args, TaskContext) -> dict` ที่ลงทะเบียนก่อนใช้ IR เลือกได้เฉพาะชื่อ tool ที่ลงทะเบียนและไม่สามารถ import module หรือเรียก shell เอง
 
-## ขอบเขตไฟล์และความเชื่อถือ
+Built-ins: `files.exists`, `files.require_exists`, `files.read_text`, `files.write_text`, `text.normalize`, `core.value` File tools จำกัด workspace, ปฏิเสธ symlink/`..` และเขียน UTF-8 แบบ atomic
 
-Built-in file tools จำกัด path ให้อยู่ใต้ `--workspace` ปฏิเสธ symlink และ path component `..` ใช้ UTF-8 และเขียนไฟล์แบบ atomic Path ที่คืนจาก tool เป็น path เทียบกับ workspace การเรียก tool ที่ลงทะเบียนเองเป็นการรันโค้ดที่ผู้พัฒนาเชื่อถือ subprocess และ path guard ของ built-in tools ไม่ใช่ sandbox สำหรับโค้ดอันตราย
+เพิ่ม `--plugins path/to/plugins.json` ใน local run หรือ worker เพื่อโหลด trusted plugin configuration; `browser.run` ใช้ Playwright และ origin allowlist; `desktop.run` ใช้ xdotool/Pillow บน X11 ดู [tool plugins and RPA](docs/tool-plugins.md)
 
-อย่าใส่ secret เป็น input หรือ output หากไม่ต้องการให้เก็บอยู่ใน SQLite และ logs ควรอ่าน credentials จาก environment ภายใน provider ที่เลือกใช้
+AI steps แยก registry จาก deterministic tools ใช้ `run --ai-tool TOOL_NAME --endpoint URL --model MODEL --api-key-env ENV_NAME` หรือ worker `--ai-config CONFIG.json` โดยเก็บเพียงชื่อ environment variable ของ credential ใน configuration
 
-## ยังไม่อยู่ใน MVP
+## Retry, recovery และขอบเขตความเชื่อถือ
 
-ไม่มี loops, parallel execution, distributed workers, scheduling, UI, desktop/browser RPA หรือ backend compiler ที่ deploy ไปยัง Temporal, n8n, GitHub Actions, LangGraph หรือ Azure Durable Functions รายชื่อ backend เหล่านี้เป็นทิศทางการพัฒนาต่อ ไม่ใช่ integration ที่ใช้งานได้ในโค้ดปัจจุบัน
+SQLite ของ coordinator อยู่ที่ server เท่านั้น workers ติดต่อผ่าน HTTP และแต่ละ worker มี runtime checkpoint ของตัวเอง Lease ownership และ fencing token ป้องกัน worker เก่าส่งผลมาทับสถานะใหม่ Default เมื่อ lease หมดคือ `needs_recovery`; ผู้ดำเนินการต้องตรวจ external effects ก่อน retry
 
-ดู [`docs/architecture.md`](docs/architecture.md), [`docs/roadmap.md`](docs/roadmap.md) และ [`docs/adr`](docs/adr) สำหรับเหตุผลการออกแบบและลำดับพัฒนา
+```bash
+agentic-workflow recover RUN_ID --db .state/runs.sqlite3 --retry-interrupted
+```
 
-เผยแพร่ภายใต้ [MIT License](LICENSE)
+Retry/timeout/cancellation ไม่ rollback external effects และไม่รับประกัน exactly-once ปลายทาง Tool ที่มี side effects ต้องใช้ idempotency key หรือ reconciliation ของระบบปลายทางเอง อนุมัติที่ค้างจะผูกกับ worker เดิมเพื่อรักษา local checkpoint; ย้าย worker ผ่าน explicit recovery ซึ่งอาจต้องทำบางขั้นซ้ำ
+
+Subprocess isolation ใช้ควบคุม execution ไม่ใช่ sandbox สำหรับ untrusted Python plugins เก็บ runtime data, auth files และ workspace ภายใต้สิทธิ์ระบบที่เหมาะสม อย่าใส่ secrets ใน workflow inputs/outputs เพราะ state และ events เก็บข้อมูลเหล่านั้น
+
+## ทดสอบด้วยตัวเอง
+
+```bash
+python -m pip install -e '.[all]'
+python -m unittest discover -s tests -v
+python -m playwright install chromium
+python -m sit.run --output .state/sit-report.json
+```
+
+Desktop scenario ต้องมี Xvfb/X11 และ xdotool; บน Linux ใช้ `xvfb-run -a python -m sit.run --output .state/sit-report.json` Runner เก็บ JSON, JUnit และหลักฐาน พร้อมแยก passed/failed/skipped และคืน nonzero เมื่อมี failure ดู [SIT plan](docs/sit-plan.md) สำหรับ scenario, oracle และ dependency gates
+
+[GitHub Actions](https://github.com/BasS-projects/agentic-workflow-compiler/actions) รัน Python matrix, SIT พร้อม browser/desktop จริง และ Docker deployment smoke test [Validation record](docs/validation.md) ระบุสิ่งที่รันสำเร็จจริงและข้อจำกัดของ environment
+
+เอกสารเพิ่มเติม: [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [ADRs](docs/adr), [cloud development](docs/cloud-development.md)
+
+[MIT License](LICENSE)

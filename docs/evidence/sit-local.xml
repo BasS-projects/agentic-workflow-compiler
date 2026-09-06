@@ -1,0 +1,190 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="agentic-workflow-independent-sit" tests="13" failures="0" skipped="3" time="16.181">
+  <testcase name="semantic_review" classname="sit.phase1" time="0.042">
+    <system-out>{
+  "normalized": "Purchase order\nACME",
+  "ir_tamper_rejected": true,
+  "source_tamper_rejected": true,
+  "unreviewed_rejected": true,
+  "semantic_provider": "deterministic contract fixture; not a model quality evaluation"
+}</system-out>
+  </testcase>
+  <testcase name="langgraph_parity" classname="sit.phase2" time="1.598">
+    <system-out>{
+  "engines": [
+    "Python runtime",
+    "actual LangGraph StateGraph"
+  ],
+  "business_outcomes": {
+    "python": {
+      "success_outputs": {
+        "normalized": "Invoice\nACME 001",
+        "optional": null
+      },
+      "step_statuses": [
+        "completed",
+        "skipped",
+        "completed"
+      ],
+      "outage_initial": "failed",
+      "outage_resumed": "completed",
+      "retry_outputs": {
+        "amount_thb": 1250
+      },
+      "retry_attempts": 2
+    },
+    "langgraph": {
+      "success_outputs": {
+        "normalized": "Invoice\nACME 001",
+        "optional": null
+      },
+      "step_statuses": [
+        "completed",
+        "skipped",
+        "completed"
+      ],
+      "outage_initial": "failed",
+      "outage_resumed": "completed",
+      "retry_outputs": {
+        "amount_thb": 1250
+      },
+      "retry_attempts": 2
+    }
+  },
+  "real_http_request_counts": {
+    "python": 2,
+    "langgraph": 2
+  }
+}</system-out>
+  </testcase>
+  <testcase name="advanced_batch_parallel" classname="sit.phase3" time="1.465">
+    <system-out>{
+  "normalized_documents": [
+    "First invoice",
+    "Second invoice",
+    "Third invoice"
+  ],
+  "batch_overflow_rejected": true,
+  "peak_active": 2,
+  "distinct_processes": 4,
+  "timing": [
+    {
+      "end": 28376.749652634,
+      "name": "alpha",
+      "pid": 37,
+      "start": 28376.349539599
+    },
+    {
+      "end": 28376.769977623,
+      "name": "beta",
+      "pid": 38,
+      "start": 28376.369866901
+    },
+    {
+      "end": 28377.264372902,
+      "name": "delta",
+      "pid": 39,
+      "start": 28376.864262562
+    },
+    {
+      "end": 28377.29282958,
+      "name": "gamma",
+      "pid": 40,
+      "start": 28376.892724616
+    }
+  ]
+}</system-out>
+  </testcase>
+  <testcase name="advanced_approval_cancellation" classname="sit.phase3" time="3.807">
+    <system-out>{
+  "approved_after_restart": true,
+  "preparation_side_effect_count": 1,
+  "denied_status": "failed",
+  "active_cancel_status": "cancelled",
+  "cancel_stop_seconds": 0.039,
+  "late_effect_absent_after_original_deadline": true
+}</system-out>
+  </testcase>
+  <testcase name="api_rbac_identity" classname="sit.phase4" time="0.099">
+    <system-out>{
+  "unauthenticated": 401,
+  "viewer_write": 403,
+  "operator_claim": 403,
+  "worker_impersonation": 403,
+  "forged_actor_ignored": true,
+  "identity_conflict": 409,
+  "deduplicated_count": 1,
+  "authenticated_metrics_verified": true
+}</system-out>
+  </testcase>
+  <testcase name="remote_workers_exclusive" classname="sit.phase3" time="0.588">
+    <system-out>{
+  "transport": "actual HTTP over loopback; two independent OS worker processes",
+  "workers": [
+    "worker-a",
+    "worker-b"
+  ],
+  "claims_per_initial_run": {
+    "invoice_a": 1,
+    "invoice_b": 1
+  },
+  "contended_claim_count": 1,
+  "delivered_content": "ACME invoice 001",
+  "coordinator_db_shared_with_workers": false
+}</system-out>
+  </testcase>
+  <testcase name="lease_fencing_recovery_schedule" classname="sit.phase4" time="1.584">
+    <system-out>{
+  "real_lease_expiry": true,
+  "uncertain_effects_require_recovery": true,
+  "stale_complete_and_heartbeat_http": 409,
+  "recovery_completed": true,
+  "cancelled_lease_complete_http": 409,
+  "same_due_tick_run_counts": [
+    1,
+    0
+  ],
+  "scheduled_delivery_completed": true
+}</system-out>
+  </testcase>
+  <testcase name="remote_approval_restart" classname="sit.phase3" time="0.83">
+    <system-out>{
+  "waiting_before_approval": true,
+  "new_process_resume": true,
+  "preparation_not_replayed": true,
+  "published_after_approval": true,
+  "approval_actor": "finance-reviewer"
+}</system-out>
+  </testcase>
+  <testcase name="remote_active_cancellation" classname="sit.phase3" time="3.454">
+    <system-out>{
+  "transport": "real coordinator and remote worker OS processes",
+  "tool_loading": "explicit trusted fixture plugin",
+  "coordinator_status": "cancelled",
+  "worker_stop_seconds": 1.269,
+  "late_effect_absent_after_original_deadline": true,
+  "downstream_publication_absent": true
+}</system-out>
+  </testcase>
+  <testcase name="remote_abrupt_crash_takeover" classname="sit.phase3" time="2.26">
+    <system-out>{
+  "crash": "actual SIGKILL of remote supervisor after HTTP effect accepted",
+  "lease_expiry_requires_recovery": true,
+  "replacement_worker": "worker-b",
+  "http_delivery_attempts": 2,
+  "unique_idempotency_keys": 1,
+  "vendor_deliveries": 1,
+  "old_owner_completion_http": 409,
+  "limitation": "Deduplication proved for the idempotent fixture service; external services must implement that contract."
+}</system-out>
+  </testcase>
+  <testcase name="browser_vendor_quote" classname="sit.phase4" time="0.441">
+    <skipped message="Playwright package exists but Chromium is unavailable; real browser gate not executed." />
+  </testcase>
+  <testcase name="desktop_real" classname="sit.phase4" time="0.0">
+    <skipped message="Real desktop gate requires a disposable X11 display; missing: Xvfb, xdotool" />
+  </testcase>
+  <testcase name="live_semantic_provider" classname="sit.phase1" time="0.0">
+    <skipped message="No SIT_LLM_ENDPOINT and SIT_LLM_MODEL configured; live semantic extraction and model quality remain unproved." />
+  </testcase>
+</testsuite>

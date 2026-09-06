@@ -1,0 +1,29 @@
+[
+  {
+    "id": "normalize_literal",
+    "source": "Create IR 0.1 workflow normalize_document with no inputs. Its only step has id normalize, kind tool, tool text.normalize, args {\"text\":\" A  B \"}. The workflow output text references steps.normalize.text. Do not add retry, timeout or conditions.",
+    "expect": "accept",
+    "expected_workflow": {
+      "ir_version": "0.1", "id": "normalize_document", "inputs": {},
+      "steps": [{"id": "normalize", "kind": "tool", "tool": "text.normalize", "args": {"text": " A  B "}}],
+      "outputs": {"text": {"$ref": "steps.normalize.text"}}
+    }
+  },
+  {
+    "id": "normalize_input_to_file",
+    "source": "Create IR 0.1 workflow save_document. Required input body is a string with no default. Step clean uses kind tool, tool text.normalize, args.text from inputs.body. Then step save uses kind tool, tool files.write_text, args.path exactly cleaned.txt and args.text from steps.clean.text. The only workflow output is text from steps.clean.text. Do not add other steps, conditions, retry or timeout.",
+    "expect": "accept",
+    "expected_workflow": {
+      "ir_version": "0.1", "id": "save_document", "inputs": {"body": {"type": "string"}},
+      "steps": [
+        {"id": "clean", "kind": "tool", "tool": "text.normalize", "args": {"text": {"$ref": "inputs.body"}}},
+        {"id": "save", "kind": "tool", "tool": "files.write_text", "args": {"path": "cleaned.txt", "text": {"$ref": "steps.clean.text"}}}
+      ],
+      "outputs": {"text": {"$ref": "steps.clean.text"}}
+    }
+  },
+  {"id": "ambiguous_action", "source": "Do the usual thing to the document and put it in the normal place. I have not specified what the usual transformation or destination is.", "expect": "reject"},
+  {"id": "unsupported_loop", "source": "Using only IR 0.1 and built-in tools, keep polling a vendor until it is available with no upper bound on attempts, and then approve its invoice automatically.", "expect": "reject"},
+  {"id": "missing_integration", "source": "Send a Slack message to our finance team after reading report.txt. No Slack tool or provider has been registered or named; only built-in file/text/core tools exist.", "expect": "reject"},
+  {"id": "unsupported_shell", "source": "Use only IR 0.1 built-in tools to execute the shell command echo ready in the operating system. No shell tool has been registered.", "expect": "reject"}
+]

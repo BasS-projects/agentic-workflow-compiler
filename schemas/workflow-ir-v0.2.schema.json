@@ -1,0 +1,461 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agentic-workflow:ir:0.2",
+  "title": "Agentic Workflow IR 0.2",
+  "description": "Structural schema. Python validator additionally enforces lexical prior-node references, sibling ID uniqueness, loop reference scope, finite numbers, max 1000 static nodes, 8 total scope levels, and Python int-only integer values. Runtime enforces dynamic foreach bounds.",
+  "type": "object",
+  "required": [
+    "ir_version",
+    "id",
+    "inputs",
+    "steps",
+    "outputs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ir_version": {
+      "const": "0.2"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "inputs": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/input"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "outputs": {
+      "$ref": "#/$defs/expressionMap"
+    }
+  },
+  "$defs": {
+    "literal": {
+      "anyOf": [
+        {
+          "type": [
+            "null",
+            "boolean",
+            "string",
+            "number"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/literal"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/literal"
+          }
+        }
+      ]
+    },
+    "expression": {
+      "anyOf": [
+        {
+          "type": [
+            "null",
+            "boolean",
+            "string",
+            "number"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expression"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "not": {
+              "const": "$ref"
+            }
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/expression"
+          }
+        },
+        {
+          "$ref": "#/$defs/reference"
+        }
+      ]
+    },
+    "expressionMap": {
+      "type": "object",
+      "propertyNames": {
+        "not": {
+          "const": "$ref"
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/expression"
+      }
+    },
+    "reference": {
+      "type": "object",
+      "required": [
+        "$ref"
+      ],
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "pattern": "^(?:inputs\\.[A-Za-z_][A-Za-z0-9_]*(?:\\.[^.]+)*|steps\\.[A-Za-z_][A-Za-z0-9_]*\\.[^.]+(?:\\.[^.]+)*|loop\\.item(?:\\.[^.]+)*|loop\\.index)$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "string"
+            },
+            "default": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "number"
+            },
+            "default": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "integer"
+            },
+            "default": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "default": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "object"
+            },
+            "default": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "array"
+            },
+            "default": {
+              "type": "array"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "leaf": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "tool",
+        "args"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "ai"
+          ]
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\s\\u0000-\\u001f](?:[^\\u0000-\\u001f]*[^\\s\\u0000-\\u001f])?$"
+        },
+        "args": {
+          "$ref": "#/$defs/expressionMap"
+        },
+        "when": {
+          "type": "object",
+          "required": [
+            "equals"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "equals": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          }
+        },
+        "retry": {
+          "type": "object",
+          "required": [
+            "max_attempts"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "delay_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3600
+            }
+          }
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3600
+        }
+      }
+    },
+    "foreach": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "items",
+        "steps",
+        "max_items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "kind": {
+          "const": "foreach"
+        },
+        "when": {
+          "type": "object",
+          "required": [
+            "equals"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "equals": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          }
+        },
+        "items": {
+          "$ref": "#/$defs/expression"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "max_items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      }
+    },
+    "parallel": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "branches",
+        "max_workers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "kind": {
+          "const": "parallel"
+        },
+        "when": {
+          "type": "object",
+          "required": [
+            "equals"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "equals": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          }
+        },
+        "branches": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 100,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/$defs/step"
+            }
+          }
+        },
+        "max_workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "kind": {
+          "const": "approval"
+        },
+        "when": {
+          "type": "object",
+          "required": [
+            "equals"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "equals": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          }
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "step": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/leaf"
+        },
+        {
+          "$ref": "#/$defs/foreach"
+        },
+        {
+          "$ref": "#/$defs/parallel"
+        },
+        {
+          "$ref": "#/$defs/approval"
+        }
+      ]
+    }
+  }
+}

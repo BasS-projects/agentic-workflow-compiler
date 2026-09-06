@@ -1,54 +1,44 @@
-# Roadmap
+# Design phase coverage — version 0.2.0
 
-สถานะนี้แยกสิ่งที่ MVP ทำได้ออกจากแนวทางพัฒนาต่อ รายการในอนาคตยังไม่ใช่ commitment เรื่องกำหนดส่งหรือ backend ที่เลือกแล้ว
+This records implemented scope separately from evidence that requires a real
+external environment. See [validation](validation.md) and [SIT plan](sit-plan.md)
+for actual execution results. M2 calls for one backend; LangGraph is that backend.
 
-## Milestone 0 — runnable foundation
+| Phase | Delivered implementation | Acceptance evidence |
+| --- | --- | --- |
+| M0 Foundation | Structured extraction, strict IR0.1, deterministic tools/AI, retries/timeouts, SQLite resume, CLI/Codespaces | Original regression suite and document CLI pipeline |
+| M1 Semantic compilation | Review bundles, source/IR/provenance hashes, diagnostics, explicit rejection protocol, conservative optimizer, exact expected-workflow evaluation | Bundle review/tamper, ambiguity/unsupported fixtures and optimizer parity; live model evaluation is a separate configured gate |
+| M2 First backend | Native LangGraph StateGraph execution, generated executable artifact, explicit capability rejection | Python/LangGraph output, retry, skip, failure and resume parity |
+| M3 Advanced execution | Versioned IR0.2/migration, bounded foreach/parallel, durable approvals/cancel, central leased queue and HTTP workers | Real concurrent processes, durable checkpoints, denial/cancel, exclusive claims, stale fencing, lease loss and uncertain recovery |
+| M4 Interaction/operations | API/RBAC, web console, interval scheduling, Prometheus metrics, local plugins, Playwright browser/X11 desktop RPA, container deployment/health/backup guidance | Actual HTTP/process integration, real browser/desktop gates, Docker Compose smoke and output verification |
 
-ขอบเขตของ repository รุ่นแรก:
+## Explicit choices
 
-- `SKILL.md` ที่มี structured `workflow-ir` JSON → compile → deterministic validation
-- Python runtime สำหรับ sequential tasks, condition, references, retry และ timeout
-- Registered tool และ explicit AI callable extension points พร้อม optional OpenAI-compatible HTTP provider
-- SQLite state/events, resume, stable idempotency keys และ explicit recovery ของ run ที่ถูกขัดจังหวะ
-- Example document pipeline ที่รันได้โดยไม่ใช้ API key
-- CLI, tests, CI และ development container สำหรับ cloud development
-- Semantic extraction protocol และ optional `ChatCompletionsProvider` พร้อม mocked HTTP tests; backend adapter เป็น protocol โดยยังไม่มี remote backend implementation
+- IR0.1 behavior remains compatible. IR0.2 defines structured control flow;
+  it is not silently lowered to a less capable backend.
+- LangGraph runs IR0.1 natively. Temporal, n8n, GitHub Actions as an execution
+  backend, and Azure Durable Functions remain possible future adapters, not
+  integrations claimed by this release. GitHub Actions currently provides CI.
+- One coordinator owns its SQLite queue. Remote workers never open that file.
+  Workers have independent durable workspaces. Lease fencing protects queue
+  state; external side effects still need deduplication/reconciliation.
+- Human action approval uses authenticated API roles. Compile bundle review
+  binds an acknowledgement to content hashes; it is not a signed authorization
+  artifact from an identity provider.
+- Browser automation uses Playwright and explicit origins; desktop automation
+  uses X11/xdotool. Both run as trusted worker tools, outside compiler logic.
+- Deployment is an API/worker Compose stack with durable volumes. Production
+  TLS, cloud account, routing, monitoring integration and backup destination
+  depend on the selected deployment environment.
 
-Acceptance: clone repository, สร้าง Python environment, compile ตัวอย่าง, รันจนได้ output file, inspect/events ได้ และ resume แล้วไม่รันขั้นที่สำเร็จซ้ำ
+## External acceptance gates
 
-## Milestone 1 — semantic extraction ที่ตรวจสอบได้
+1. **Live semantic model:** configure an endpoint/model/credential and run the
+   supplied semantic corpus. Recorded responses cannot establish model quality.
+2. **Production cloud rollout:** select the target account/host, configure TLS
+   and private credentials, deploy, and repeat smoke/restore checks there.
+3. **Customer RPA workflow:** replace local browser/desktop fixtures with the
+   authorized target application's selectors, identities and action approvals.
 
-- ทดสอบ `ChatCompletionsProvider` กับ endpoint/model จริง โดยรักษา `SemanticExtractor` boundary
-- ให้ extraction คืน IR ตาม schema แล้วผ่าน deterministic validator ทุกครั้ง
-- เพิ่ม evaluation cases ที่มี expected workflow และกรณีคำอธิบายกำกวม
-- แสดง IR เพื่อ review ก่อน execution ของงานที่สร้างด้วย semantic extraction
-- บันทึก source/provenance, model configuration และ compile diagnostics โดยไม่เก็บ credentials
-- พิจารณา optimizer เฉพาะ transformation ที่พิสูจน์ได้ว่าไม่เปลี่ยนความหมาย
-
-Acceptance: วัดความถูกต้องของการแปลง skill กับชุดตัวอย่างได้ และ unsupported/ambiguous instructions ไม่ถูก execute โดยการเดา
-
-## Milestone 2 — backend compiler ตัวแรก
-
-- เลือก backend จาก use case จริงระหว่าง Temporal, n8n, GitHub Actions, LangGraph หรือ Azure Durable Functions
-- กำหนด capability mapping และ reject unsupported semantics
-- เขียน adapter ที่สร้าง artifact ของ backend พร้อม validation
-- เปรียบเทียบผลกับ Python reference runtime ใน workflow ชุดเดียวกัน
-
-Acceptance: workflow ที่ประกาศว่ารองรับต้องได้ behavior ที่สอดคล้องกัน รวม failure, retry และ condition โดยไม่ลด semantics เงียบ ๆ
-
-## Milestone 3 — execution capabilities เพิ่มเติม
-
-พิจารณา loops, parallel tasks, human approvals และ remote workers หลังจากกำหนด semantics เรื่อง state, cancellation, retry และ idempotency ของแต่ละ feature แล้ว แต่ละ feature ควรเป็นการเปลี่ยน IR version ที่ระบุ migration ชัดเจน
-
-Distributed execution ต้องมี durable queue/locking, worker ownership และ recovery semantics ที่ออกแบบเฉพาะ ไม่ต่อยอดโดยสมมติว่า SQLite file lock ใช้แทน distributed coordinator ได้
-
-## Milestone 4 — interaction และ operations
-
-พิจารณา API/UI, scheduling, browser/desktop RPA, deployment และ observability ตาม workflow ที่ใช้งานจริง แยก credential management และ approval ของ action ออกจาก workflow source
-
-## Decisions still open
-
-- Repository visibility และแนวทางการดูแล release โดย source ใช้ MIT License
-- Endpoint/model สำหรับ semantic extraction ที่จะตรวจ compatibility จริง และ backend compiler ตัวแรก
-- แนวทาง human approvals และ authorization สำหรับ external side effects
-- Storage และ deployment target เมื่อมี long-running production service
+These gates are reported as unexecuted until evidence exists; local test success
+and CI container deployment are not a claim that a public service is provisioned.

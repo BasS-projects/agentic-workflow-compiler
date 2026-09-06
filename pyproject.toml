@@ -4,15 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-workflow-compiler"
-version = "0.1.0"
+version = "0.2.0"
 description = "Vendor-neutral Skill-to-IR compiler and deterministic local workflow runtime"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
-dependencies = []
+dependencies = ["cloudpickle>=3,<4"]
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=1.2.11,<2"]
+rpa = ["playwright>=1.50,<2", "Pillow>=10"]
+all = ["langgraph>=1.2.11,<2", "playwright>=1.50,<2", "Pillow>=10"]
 
 [project.scripts]
 agentic-workflow = "agentic_workflow.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+agentic_workflow = ["web/*.html", "web/*.js", "web/*.css"]

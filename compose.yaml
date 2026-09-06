@@ -1,0 +1,97 @@
+name: agentic-workflow
+
+x-runtime: &runtime
+  image: ${AWC_IMAGE:-agentic-workflow-compiler:local}
+  build:
+    context: .
+    target: runtime
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,nosuid,noexec,size=134217728
+  pids_limit: 256
+
+services:
+  api:
+    <<: *runtime
+    command:
+      - python
+      - -m
+      - agentic_workflow.server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --db
+      - /data/coordinator/coordinator.db
+      - --auth-file
+      - /run/config/auth.json
+      - --tick-seconds
+      - "2"
+    ports:
+      - "127.0.0.1:${AWC_PORT:-8080}:8080"
+    volumes:
+      - coordinator-data:/data/coordinator
+      - type: bind
+        source: ./.state/deploy/auth.json
+        target: /run/config/auth.json
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD, python, /opt/awc/deploy/healthcheck.py, api]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    stop_grace_period: 20s
+
+  worker:
+    <<: *runtime
+    depends_on:
+      api:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - agentic_workflow.remote_worker
+      - --url
+      - http://api:8080
+      - --token-env
+      - AWC_WORKER_TOKEN
+      - --worker-id
+      - worker-1
+      - --workspace
+      - /data/worker
+      - --plugins
+      - /run/config/plugins.json
+      - --health-file
+      - /data/worker/health
+      - --lease-seconds
+      - "60"
+      - --poll-seconds
+      - "1"
+    env_file:
+      - ./.state/deploy/worker.env
+    volumes:
+      - worker-data:/data/worker
+      - type: bind
+        source: ./.state/deploy/plugins.json
+        target: /run/config/plugins.json
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD, python, /opt/awc/deploy/healthcheck.py, worker, /data/worker/health]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 70s
+
+volumes:
+  coordinator-data:
+  worker-data:

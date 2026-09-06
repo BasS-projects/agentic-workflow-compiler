@@ -94,6 +94,66 @@ class CliTests(unittest.TestCase):
         error = self.cli("validate", self.ir, expected=2)
         self.assertIn("nesting", error["error"])
 
+    def test_review_bundle_blocks_effects_until_approved_and_detects_tamper(self):
+        result = self.cli("compile", self.skill, "-o", self.ir, "--bundle", "--optimize")
+        self.assertTrue(result["review_required"])
+        self.cli(*self.run_args(), expected=2)
+        self.assertFalse((self.workspace / "result.txt").exists())
+        self.cli("approve-bundle", self.ir, "--actor", "sit-reviewer")
+        self.assertEqual(self.cli(*self.run_args())["status"], "completed")
+        bundle = json.loads(self.ir.read_text())
+        bundle["workflow"]["steps"][0]["args"]["text"] = "tampered"
+        self.ir.write_text(json.dumps(bundle))
+        self.cli("validate", self.ir, expected=2)
+        self.assertEqual((self.workspace / "result.txt").read_text(), "hello")
+
+    def test_v2_approval_can_be_inspected_and_resumed_across_cli_processes(self):
+        self.workflow["ir_version"] = "0.2"
+        self.workflow["steps"].insert(0, {"id": "review", "kind": "approval", "prompt": "Publish text?"})
+        self.skill.write_text("```workflow-ir\n" + json.dumps(self.workflow) + "\n```\n")
+        self.cli("compile", self.skill, "-o", self.ir)
+        waiting = self.cli(*self.run_args(), expected=3)
+        self.assertEqual(waiting["status"], "waiting_approval")
+        self.assertFalse((self.workspace / "result.txt").exists())
+        record = self.cli("inspect", "cli-run", "--db", self.db)
+        self.assertEqual(record["status"], "waiting_approval")
+        self.cli("approve", "cli-run", "--db", self.db, "--step", "review",
+                 "--actor", "sit-approver", "--approve")
+        self.assertEqual(self.cli(*self.run_args(), "--resume")["status"], "completed")
+        self.assertEqual((self.workspace / "result.txt").read_text(), "hello")
+
+    def test_migration_preserves_workflow_output(self):
+        self.cli("compile", self.skill, "-o", self.ir)
+        self.cli("migrate", self.ir, "-o", self.ir)
+        self.assertEqual(json.loads(self.ir.read_text())["ir_version"], "0.2")
+        self.assertEqual(self.cli(*self.run_args())["outputs"], {"path": "result.txt"})
+
+    @unittest.skipUnless(__import__("importlib.util", fromlist=["find_spec"]).find_spec("langgraph"),
+                         "Install .[langgraph] to test executable backend artifacts")
+    def test_generated_backend_artifact_executes(self):
+        self.cli("compile", self.skill, "-o", self.ir)
+        target = self.workspace / "backend"
+        self.cli("backend-compile", self.ir, "-o", target)
+        self.assertTrue((target / "manifest.json").is_file())
+        env = dict(os.environ, PYTHONPATH=str(ROOT / "src"))
+        result = subprocess.run([sys.executable, str(target / "run_workflow.py"),
+                                 "--inputs", str(self.inputs), "--workspace", str(self.workspace),
+                                 "--db", str(self.db), "--run-id", "artifact-run"],
+                                cwd=target, env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["status"], "completed")
+        self.assertEqual((self.workspace / "result.txt").read_text(), "hello")
+        self.assertEqual(self.cli("inspect", "artifact-run", "--db", self.db)["status"], "completed")
+        mismatch = self.cli("run", self.ir, "--inputs", self.inputs,
+                            "--workspace", self.workspace, "--db", self.db,
+                            "--run-id", "artifact-run", "--resume", expected=2)
+        self.assertIn("original --backend langgraph", mismatch["error"])
+        from agentic_workflow.runtime import Runtime, IdentityMismatchError
+        original = Runtime(self.db, self.workspace)
+        self.addCleanup(original.close)
+        with self.assertRaisesRegex(IdentityMismatchError, "LangGraph"):
+            original.recover("artifact-run", policy="retry")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,58 @@
+{
+  "ir_version": "0.2",
+  "id": "vendor_parallel",
+  "inputs": {},
+  "steps": [
+    {
+      "id": "vendors",
+      "kind": "parallel",
+      "branches": {
+        "ACME": [
+          {
+            "id": "quote",
+            "kind": "tool",
+            "tool": "core.value",
+            "args": {
+              "value": {
+                "vendor": "ACME",
+                "amount_thb": 1250
+              }
+            }
+          }
+        ],
+        "BETA": [
+          {
+            "id": "quote",
+            "kind": "tool",
+            "tool": "core.value",
+            "args": {
+              "value": {
+                "vendor": "BETA",
+                "amount_thb": 1300
+              }
+            }
+          }
+        ],
+        "GAMMA": [
+          {
+            "id": "quote",
+            "kind": "tool",
+            "tool": "core.value",
+            "args": {
+              "value": {
+                "vendor": "GAMMA",
+                "amount_thb": 1190
+              }
+            }
+          }
+        ]
+      },
+      "max_workers": 2
+    }
+  ],
+  "outputs": {
+    "quotes": {
+      "$ref": "steps.vendors.branches"
+    }
+  }
+}
